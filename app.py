@@ -92,6 +92,7 @@ with tab1:
         st.markdown('<div class="target-box">目標: 10回 × 3セット</div>', unsafe_allow_html=True)
         st.video("https://www.youtube.com/watch?v=実際の動画のID") 
         st.divider()
+
     with leg_tab:
         st.markdown("#### バックスクワット")
         st.markdown('<div class="target-box">目標: 10回 × 3セット</div>', unsafe_allow_html=True)
