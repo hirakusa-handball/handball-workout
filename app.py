@@ -90,7 +90,7 @@ with tab1:
 
         st.markdown("#### 懸垂（チンニング）")
         st.markdown('<div class="target-box">目標: 10回 × 3セット</div>', unsafe_allow_html=True)
-        st.video("https://youtube.com/shorts/EhQeBHP7rjE?si=Cn8yaohgKg376L3_") 
+        st.video("https://youtube.com/watch?v=EhQeBHP7rjE?si=tJrThszJmBeXaYfP") 
         st.divider()
 
     with leg_tab:
