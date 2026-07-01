@@ -125,7 +125,7 @@ with tab4:
     st.markdown('<div class="target-box">目標: 20回 × 3セット</div>', unsafe_allow_html=True)
     st.video("https://www.youtube.com/watch?v=wkD8rjkodUI")
    
-    st.markdown("#### 新しい種目の名前")
+    st.markdown("#### バーベル腹筋")
     st.markdown('<div class="target-box">目標: 10回 × 3セット</div>', unsafe_allow_html=True)
     st.video("動画のURLまたはファイル名")
     st.divider()
