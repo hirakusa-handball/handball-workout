@@ -88,7 +88,7 @@ with tab1:
         st.markdown("#### 背中・二頭系メニュー")
         st.caption("※メニュー準備中")
 
-    　　　st.markdown("#### 懸垂（チンニング）")
+        st.markdown("#### 懸垂（チンニング）")
         st.markdown('<div class="target-box">目標: 10回 × 3セット</div>', unsafe_allow_html=True)
         st.video("https://www.youtube.com/watch?v=実際の動画のID") 
         st.divider()
