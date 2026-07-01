@@ -87,7 +87,11 @@ with tab1:
     with pull_tab:
         st.markdown("#### 背中・二頭系メニュー")
         st.caption("※メニュー準備中")
-        
+
+    　　　st.markdown("#### 懸垂（チンニング）")
+        st.markdown('<div class="target-box">目標: 10回 × 3セット</div>', unsafe_allow_html=True)
+        st.video("https://www.youtube.com/watch?v=実際の動画のID") 
+        st.divider()
     with leg_tab:
         st.markdown("#### バックスクワット")
         st.markdown('<div class="target-box">目標: 10回 × 3セット</div>', unsafe_allow_html=True)
@@ -127,7 +131,6 @@ with tab4:
    
     st.markdown("#### バーベルバカ腹筋")
     st.markdown('<div class="target-box">目標: 10回 × 3セット</div>', unsafe_allow_html=True)
-    st.video("動画のURLまたはファイル名")
     st.divider()
 
 # --- タブ5: 今日のメニュー ---
