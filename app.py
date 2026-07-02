@@ -27,8 +27,14 @@ def render_training_page() -> None:
                 f'<div class="section-header">{CATEGORY_LABELS[cat]} Menu</div>',
                 unsafe_allow_html=True,
             )
-            cat_items = [item for item in st.session_state["library"] if item["category"] == cat]
-
+            # --- 変更箇所：筋力タブの場合のみサブメニューを表示 ---
+            if cat == "筋力":  # ← 画面のラベルではなく、変数(cat)自体で判定します
+                sub_cat = st.radio("部位を選択", ["Push", "Pull", "Leg"], horizontal=True, key=f"radio_{cat}")
+                target_cat_string = f"{cat}_{sub_cat}"
+                cat_items = [item for item in st.session_state["library"] if item["category"] == target_cat_string]
+            else:
+                cat_items = [item for item in st.session_state["library"] if item["category"] == cat]
+            # --------------------------------------------------
             if not cat_items:
                 st.caption("No exercises registered in this category yet.")
                 continue
@@ -126,8 +132,15 @@ def render_todays_menu_admin() -> None:
 
 def render_library_create_admin() -> None:
     st.markdown('<div class="section-header">Add Workout to Library</div>', unsafe_allow_html=True)
+    
+    # フォームの外でカテゴリーを選択させる（切り替えると画面が反応するようにするため）
+    new_cat = st.selectbox("Category", CATEGORIES, format_func=lambda c: CATEGORY_LABELS[c])
+    new_sub_cat = ""
+    # 変更前: if CATEGORY_LABELS[new_cat] == "筋力":
+    if new_cat == "筋力":
+        new_sub_cat = st.selectbox("部位", ["Push", "Pull", "Leg"], key="create_sub")
+
     with st.form(key="add_library_form"):
-        new_cat = st.selectbox("Category", CATEGORIES, format_func=lambda c: CATEGORY_LABELS[c])
         new_name = st.text_input("Workout name (e.g. Pull-up)")
         new_url = st.text_input("Video URL (YouTube link, etc.)")
         new_point = st.text_area("Coaching tip (optional)")
@@ -139,14 +152,17 @@ def render_library_create_admin() -> None:
                     st.error("That workout name already exists. Please use a different name.")
                 else:
                     try:
+                        # 筋力の場合は「strength_Push」のように結合して保存
+                        save_cat = f"{new_cat}_{new_sub_cat}" if new_sub_cat else new_cat
+                        
                         sheets_repository.add_library_item(
-                            category=new_cat,
+                            category=save_cat,
                             name=new_name,
                             url=new_url,
                             point=new_point,
                         )
                         refresh_session_state_from_storage()
-                        st.success(f"Added '{new_name}' to the {CATEGORY_LABELS[new_cat]} category.")
+                        st.success(f"Added '{new_name}' to the library.")
                         st.rerun()
                     except Exception as exc:
                         st.error(f"Failed to register: {exc}")
@@ -161,31 +177,40 @@ def render_library_edit_admin() -> None:
         st.write("No workouts are currently registered in the library.")
         return
 
-    edit_target_name = st.selectbox(
-        "Select workout to edit or delete",
-        available_names,
-        key="edit_select",
-    )
+    edit_target_name = st.selectbox("Select workout to edit or delete", available_names, key="edit_select")
 
     if not edit_target_name:
         return
 
-    target_index = next(
-        (i for i, item in enumerate(st.session_state["library"]) if item["name"] == edit_target_name),
-        -1,
-    )
+    target_index = next((i for i, item in enumerate(st.session_state["library"]) if item["name"] == edit_target_name), -1)
     if target_index < 0:
         st.error("Target workout was not found.")
         return
+    
     target_item = st.session_state["library"][target_index]
 
+    # 保存されている文字列（例: strength_Push）を分解する
+    raw_cat = target_item["category"]
+    if "_" in raw_cat:
+        base_cat, base_sub = raw_cat.split("_", 1)
+    else:
+        base_cat, base_sub = raw_cat, "Push" # 古いデータ用
+
+    # フォームの外でカテゴリーを選択
+    edit_cat = st.selectbox(
+        "Category",
+        CATEGORIES,
+        index=CATEGORIES.index(base_cat) if base_cat in CATEGORIES else 0,
+        format_func=lambda c: CATEGORY_LABELS[c],
+        key="edit_cat_select"
+    )
+    
+    edit_sub_cat = ""
+    # 変更前: if CATEGORY_LABELS[edit_cat] == "筋力":
+    if edit_cat == "筋力":
+        sub_options = ["Push", "Pull", "Leg"]
+        edit_sub_cat = st.selectbox("部位", sub_options, index=sub_options.index(base_sub) if base_sub in sub_options else 0, key="edit_sub")
     with st.form(key="edit_lib_form"):
-        edit_cat = st.selectbox(
-            "Category",
-            CATEGORIES,
-            index=CATEGORIES.index(target_item["category"]),
-            format_func=lambda c: CATEGORY_LABELS[c],
-        )
         edit_name = st.text_input("Workout name", value=target_item["name"])
         edit_url = st.text_input("Video URL", value=target_item["url"])
         edit_point = st.text_area("Coaching tip", value=target_item["point"])
@@ -195,17 +220,17 @@ def render_library_edit_admin() -> None:
 
     if submit_update:
         if edit_name and edit_url:
-            conflict = any(
-                item["name"] == edit_name and i != target_index
-                for i, item in enumerate(st.session_state["library"])
-            )
+            conflict = any(item["name"] == edit_name and i != target_index for i, item in enumerate(st.session_state["library"]))
             if conflict:
                 st.error("That workout name is already used by another item.")
             else:
                 try:
+                    # 再び合体させて保存
+                    save_cat = f"{edit_cat}_{edit_sub_cat}" if edit_sub_cat else edit_cat
+                    
                     sheets_repository.update_library_item(
                         item_id=target_item["id"],
-                        category=edit_cat,
+                        category=save_cat,
                         name=edit_name,
                         url=edit_url,
                         point=edit_point,
