@@ -9,6 +9,16 @@ from styles import apply_global_styles
 ADMIN_PASSWORD = "8102"
 
 st.set_page_config(page_title="Handball Team Hub", layout="centered")
+st.markdown(
+    """
+    <head>
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="theme-color" content="#000000">
+    </head>
+    """,
+    unsafe_allow_html=True,
+)
 apply_global_styles()
 init_session_state()
 
