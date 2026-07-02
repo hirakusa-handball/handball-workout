@@ -11,10 +11,15 @@ def render_todays_training_page() -> None:
 
     for index, today_item in enumerate(st.session_state["todays_menu"]):
         library_match = next(
-            (lib for lib in st.session_state["library"] if lib["name"] == today_item["name"]),
+            (
+                lib
+                for lib in st.session_state["library"]
+                if lib["id"] == today_item.get("library_id")
+            ),
             None,
         )
-        display_title = f"{index + 1}. {today_item['name']} | {today_item['reps']}回 × {today_item['sets']}セット"
+        display_name = today_item.get("name", "名称不明")
+        display_title = f"{index + 1}. {display_name} | {today_item['reps']}回 × {today_item['sets']}セット"
 
         with st.expander(display_title):
             if library_match:
