@@ -1,9 +1,10 @@
 import streamlit as st
 
-# 1. ページ全体の設定
+# ==========================================
+# 1. ページ設定とデザイン（CSS）
+# ==========================================
 st.set_page_config(page_title="Handball Team Hub", layout="centered")
 
-# 2. カスタムCSS（和モダンデザインをキープ）
 st.markdown("""
     <style>
     html, body, [class*="css"] {
@@ -45,90 +46,155 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 3. データの初期化（アプリ起動時にデフォルトのメニューをセット）
-if 'todays_menu' not in st.session_state:
-    st.session_state['todays_menu'] = [
-        {"name": "ベンチプレス | 8〜10回 × 3セット", "url": "https://www.youtube.com/watch?v=vthMCtgVtFw", "point": "肩甲骨を寄せて胸を張り、バーを下ろす位置を意識する。"},
-        {"name": "バックスクワット | 10回 × 3セット", "url": "https://www.youtube.com/watch?v=U3HhmJEFAZw", "point": "膝が内側に入らないように注意し、深くしゃがむ。"},
-        {"name": "デッドリフト | 5〜8回 × 3セット", "url": "https://www.youtube.com/watch?v=op9kVnSso6Q", "point": "背中が丸まらないように、ヒンジ動作を意識する。"}
+# ==========================================
+# 2. データの初期化（ライブラリと本日のメニュー）
+# ==========================================
+# ① トレーニングライブラリ（全種目の蓄積）
+if 'library' not in st.session_state:
+    st.session_state['library'] = [
+        {"category": "筋力", "name": "ベンチプレス", "url": "https://www.youtube.com/watch?v=vthMCtgVtFw", "point": "肩甲骨を寄せて胸を張る。"},
+        {"category": "筋力", "name": "バックスクワット", "url": "https://www.youtube.com/watch?v=U3HhmJEFAZw", "point": "膝が内側に入らないように注意。"},
+        {"category": "瞬発力", "name": "ハングクリーン", "url": "clean.mp4", "point": "股関節の爆発的な進展でバーを跳ね上げる。"},
+        {"category": "競技特化", "name": "ブルガリアンスクワット", "url": "https://www.youtube.com/watch?v=2C-uNgKwPLE", "point": "前足の踵で地面を踏み込む。"},
+        {"category": "体幹", "name": "ロシアンツイスト", "url": "https://www.youtube.com/watch?v=wkD8rjkodUI", "point": "お腹をしっかり捻る。"}
     ]
 
-# 4. サイドバー
+# ② 本日のトレーニング（ライブラリから選んだもの＋レップ数・セット数）
+if 'todays_menu' not in st.session_state:
+    st.session_state['todays_menu'] = [
+        {"name": "ベンチプレス", "reps": "10", "sets": "3"},
+        {"name": "バックスクワット", "reps": "10", "sets": "3"}
+    ]
+
+# ==========================================
+# 3. サイドバーナビゲーション
+# ==========================================
 st.sidebar.title("メニュー")
-page = st.sidebar.radio("ページを選択", ["フィジカル", "戦術・データ分析", "⚙️ 管理者設定"])
+page = st.sidebar.radio("ページを選択", ["📚 トレーニング", "🔥 本日のトレーニング", "⚙️ 管理者"])
 
 # ==========================================
-# ページA: フィジカル
+# ページA: トレーニング（ライブラリ）
 # ==========================================
-if page == "フィジカル":
-    st.markdown('<div class="main-title">HANDBALL WORKOUT</div>', unsafe_allow_html=True)
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["筋力", "瞬発力", "競技特化", "体幹", "本日のメニュー"])
-
-    # （※タブ1〜4は長くなるため省略せず、以前のまま簡略化して記載しています）
-    with tab1:
-        st.write("※筋力メニューエリア")
-    with tab2:
-        st.write("※瞬発力メニューエリア")
-    with tab3:
-        st.write("※競技特化メニューエリア")
-    with tab4:
-        st.write("※体幹メニューエリア")
-
-    # 動的に生成される「本日のメニュー」
-    with tab5:
-        st.markdown('<div class="section-header">本日のトレーニング</div>', unsafe_allow_html=True)
-        
-        # session_stateに保存されたデータをループ処理で全て表示
-        for i, item in enumerate(st.session_state['todays_menu']):
-            with st.expander(item["name"]):
-                st.video(item["url"])
-                if item["point"]:
-                    st.caption(f"ポイント: {item['point']}")
-
-# ==========================================
-# ページB: 分析（前回と同じ）
-# ==========================================
-elif page == "戦術・データ分析":
-    st.markdown('<div class="main-title">HANDBALL ANALYSIS</div>', unsafe_allow_html=True)
-    st.write("※分析ページの内容")
-
-# ==========================================
-# ページC: 管理者設定（新規追加）
-# ==========================================
-elif page == "⚙️ 管理者設定":
-    st.markdown('<div class="main-title">ADMINISTRATION</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-header">本日のメニュー 追加</div>', unsafe_allow_html=True)
+if page == "📚 トレーニング":
+    st.markdown('<div class="main-title">TRAINING LIBRARY</div>', unsafe_allow_html=True)
+    st.write("チームの全トレーニングメニューの蓄積です。")
     
-    st.write("アプリ上から直接トレーニングメニューを追加できます。")
+    categories = ["筋力", "瞬発力", "競技特化", "体幹"]
+    tabs = st.tabs(categories)
     
-    # メニュー追加用の入力フォーム
-    with st.form(key="add_menu_form"):
-        new_name = st.text_input("種目名と回数 (例: 懸垂 | 10回 × 3セット)")
-        new_url = st.text_input("動画のURL (YouTubeのリンク等)")
-        new_point = st.text_area("意識するポイント (任意)")
-        
-        submit_button = st.form_submit_button(label="リストに追加する")
-        
-        # 追加ボタンが押された時の処理
-        if submit_button:
-            if new_name and new_url:
-                # 新しいデータをリストに追加
-                st.session_state['todays_menu'].append({
-                    "name": new_name, 
-                    "url": new_url, 
-                    "point": new_point
-                })
-                st.success(f"「{new_name}」を追加しました！『フィジカル』タブの『本日のメニュー』を確認してください。")
+    for i, cat in enumerate(categories):
+        with tabs[i]:
+            st.markdown(f'<div class="section-header">{cat}メニュー</div>', unsafe_allow_html=True)
+            
+            # 該当カテゴリーのメニューだけを抽出して表示
+            cat_items = [item for item in st.session_state['library'] if item['category'] == cat]
+            
+            if not cat_items:
+                st.caption("このカテゴリーにはまだメニューが登録されていません。")
             else:
-                st.error("種目名と動画URLは必須です。")
+                for item in cat_items:
+                    with st.expander(item["name"]):
+                        st.video(item["url"])
+                        if item["point"]:
+                            st.caption(f"ポイント: {item['point']}")
 
-    st.divider()
+# ==========================================
+# ページB: 本日のトレーニング
+# ==========================================
+elif page == "🔥 本日のトレーニング":
+    st.markdown('<div class="main-title">TODAY\'S WORKOUT</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">本日の実行メニュー</div>', unsafe_allow_html=True)
     
-    # 現在の登録リストの確認・リセット機能
-    st.markdown('<div class="section-header">現在の登録リスト</div>', unsafe_allow_html=True)
-    for item in st.session_state['todays_menu']:
-        st.write(f"・ {item['name']}")
+    if not st.session_state['todays_menu']:
+        st.write("本日のメニューはまだ設定されていません。")
+    else:
+        for index, today_item in enumerate(st.session_state['todays_menu']):
+            # ライブラリから詳細情報（URLやポイント）を名前で検索して取得
+            library_match = next((lib for lib in st.session_state['library'] if lib["name"] == today_item["name"]), None)
+            
+            # メニュー名と指定されたレップ数・セット数を表示
+            display_title = f"{index + 1}. {today_item['name']} | {today_item['reps']}回 × {today_item['sets']}セット"
+            
+            with st.expander(display_title):
+                if library_match:
+                    st.video(library_match["url"])
+                    if library_match["point"]:
+                        st.caption(f"ポイント: {library_match['point']}")
+                else:
+                    st.error("※ライブラリから元のデータが削除されています。")
+
+# ==========================================
+# ページC: 管理者
+# ==========================================
+elif page == "⚙️ 管理者":
+    st.markdown('<div class="main-title">ADMINISTRATION</div>', unsafe_allow_html=True)
     
-    if st.button("メニューを全てリセット（消去）する"):
+    # ----------------------------------------
+    # 管理機能①：本日のトレーニング設定
+    # ----------------------------------------
+    st.markdown('<div class="section-header">🔥 本日のトレーニングを組む</div>', unsafe_allow_html=True)
+    st.write("ライブラリから種目を選び、今日のメニューに追加します。")
+    
+    # ライブラリに登録されている種目名だけをリスト化
+    available_names = [item["name"] for item in st.session_state['library']]
+    
+    with st.form(key="add_today_form"):
+        if available_names:
+            selected_name = st.selectbox("ライブラリから種目を選択", available_names)
+            col1, col2 = st.columns(2)
+            with col1:
+                target_reps = st.text_input("レップ数 (例: 10, または 8〜10)")
+            with col2:
+                target_sets = st.text_input("セット数 (例: 3)")
+                
+            submit_today = st.form_submit_button(label="本日のメニューに追加")
+            
+            if submit_today:
+                if target_reps and target_sets:
+                    st.session_state['todays_menu'].append({
+                        "name": selected_name,
+                        "reps": target_reps,
+                        "sets": target_sets
+                    })
+                    st.success(f"「{selected_name}」を本日のメニューに追加しました！")
+                else:
+                    st.error("レップ数とセット数を入力してください。")
+        else:
+            st.warning("先にトレーニングライブラリへ種目を追加してください。")
+            
+    # 本日のメニューのリセットボタン
+    if st.button("本日のメニューを全てクリアする"):
         st.session_state['todays_menu'] = []
         st.rerun()
+
+    st.divider()
+
+    # ----------------------------------------
+    # 管理機能②：トレーニングライブラリへの追加
+    # ----------------------------------------
+    st.markdown('<div class="section-header">📚 ライブラリに新規種目を登録</div>', unsafe_allow_html=True)
+    st.write("新しいトレーニング種目をデータベースに蓄積します。")
+    
+    with st.form(key="add_library_form"):
+        new_cat = st.selectbox("カテゴリー", ["筋力", "瞬発力", "競技特化", "体幹"])
+        new_name = st.text_input("種目名 (例: 懸垂)")
+        new_url = st.text_input("参考動画URL (YouTubeリンク等)")
+        new_point = st.text_area("意識ポイント (任意)")
+        
+        submit_lib = st.form_submit_button(label="ライブラリに登録")
+        
+        if submit_lib:
+            if new_name and new_url:
+                # 既に同じ名前の種目がないかチェック
+                if any(item['name'] == new_name for item in st.session_state['library']):
+                    st.error("その種目名は既に登録されています。別の名前を指定してください。")
+                else:
+                    st.session_state['library'].append({
+                        "category": new_cat,
+                        "name": new_name,
+                        "url": new_url,
+                        "point": new_point
+                    })
+                    st.success(f"「{new_name}」をライブラリ({new_cat})に登録しました！")
+            else:
+                st.error("種目名と動画URLは必須です。")
