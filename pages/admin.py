@@ -1,6 +1,8 @@
 import streamlit as st
 
 from constants import CATEGORIES
+from repository import sheets_repository
+from state import refresh_session_state_from_storage
 
 
 def render_admin_page() -> None:
@@ -16,6 +18,7 @@ def render_todays_menu_admin() -> None:
     st.markdown('<div class="section-header">本日のトレーニングを組む</div>', unsafe_allow_html=True)
 
     available_names = [item["name"] for item in st.session_state["library"]]
+    library_by_name = {item["name"]: item for item in st.session_state["library"]}
     with st.form(key="add_today_form"):
         if available_names:
             selected_name = st.selectbox("ライブラリから種目を選択", available_names)
@@ -28,19 +31,33 @@ def render_todays_menu_admin() -> None:
             submit_today = st.form_submit_button(label="本日のメニューに追加")
             if submit_today:
                 if target_reps and target_sets:
-                    st.session_state["todays_menu"].append(
-                        {"name": selected_name, "reps": target_reps, "sets": target_sets}
-                    )
-                    st.success(f"「{selected_name}」を本日のメニューに追加しました。")
-                    st.rerun()
+                    selected_item = library_by_name.get(selected_name)
+                    if not selected_item:
+                        st.error("選択した種目が見つかりません。")
+                    else:
+                        try:
+                            sheets_repository.add_todays_menu_item(
+                                library_id=selected_item["id"],
+                                reps=target_reps,
+                                sets=target_sets,
+                            )
+                            refresh_session_state_from_storage()
+                            st.success(f"「{selected_name}」を本日のメニューに追加しました。")
+                            st.rerun()
+                        except Exception as exc:
+                            st.error(f"保存に失敗しました: {exc}")
                 else:
                     st.error("レップ数とセット数を入力してください。")
         else:
             st.warning("先にトレーニングライブラリへ種目を追加してください。")
 
     if st.button("本日のメニューを全てクリアする"):
-        st.session_state["todays_menu"] = []
-        st.rerun()
+        try:
+            sheets_repository.clear_todays_menu()
+            refresh_session_state_from_storage()
+            st.rerun()
+        except Exception as exc:
+            st.error(f"クリアに失敗しました: {exc}")
 
 
 def render_library_create_admin() -> None:
@@ -57,11 +74,18 @@ def render_library_create_admin() -> None:
                 if any(item["name"] == new_name for item in st.session_state["library"]):
                     st.error("その種目名は既に登録されています。別の名前を指定してください。")
                 else:
-                    st.session_state["library"].append(
-                        {"category": new_cat, "name": new_name, "url": new_url, "point": new_point}
-                    )
-                    st.success(f"「{new_name}」をライブラリ({new_cat})に登録しました。")
-                    st.rerun()
+                    try:
+                        sheets_repository.add_library_item(
+                            category=new_cat,
+                            name=new_name,
+                            url=new_url,
+                            point=new_point,
+                        )
+                        refresh_session_state_from_storage()
+                        st.success(f"「{new_name}」をライブラリ({new_cat})に登録しました。")
+                        st.rerun()
+                    except Exception as exc:
+                        st.error(f"登録に失敗しました: {exc}")
             else:
                 st.error("種目名と動画URLは必須です。")
 
@@ -86,6 +110,9 @@ def render_library_edit_admin() -> None:
         (i for i, item in enumerate(st.session_state["library"]) if item["name"] == edit_target_name),
         -1,
     )
+    if target_index < 0:
+        st.error("対象の種目が見つかりません。")
+        return
     target_item = st.session_state["library"][target_index]
 
     with st.form(key="edit_lib_form"):
@@ -110,27 +137,27 @@ def render_library_edit_admin() -> None:
             if conflict:
                 st.error("その種目名は既に他の種目で使われています。")
             else:
-                st.session_state["library"][target_index] = {
-                    "category": edit_cat,
-                    "name": edit_name,
-                    "url": edit_url,
-                    "point": edit_point,
-                }
-
-                if edit_name != edit_target_name:
-                    for tm in st.session_state["todays_menu"]:
-                        if tm["name"] == edit_target_name:
-                            tm["name"] = edit_name
-
-                st.success("ライブラリの情報を更新しました。")
-                st.rerun()
+                try:
+                    sheets_repository.update_library_item(
+                        item_id=target_item["id"],
+                        category=edit_cat,
+                        name=edit_name,
+                        url=edit_url,
+                        point=edit_point,
+                    )
+                    refresh_session_state_from_storage()
+                    st.success("ライブラリの情報を更新しました。")
+                    st.rerun()
+                except Exception as exc:
+                    st.error(f"更新に失敗しました: {exc}")
         else:
             st.error("種目名と動画URLは必須です。")
 
     if delete_btn:
-        st.session_state["library"].pop(target_index)
-        st.session_state["todays_menu"] = [
-            tm for tm in st.session_state["todays_menu"] if tm["name"] != edit_target_name
-        ]
-        st.success(f"「{edit_target_name}」を削除しました。")
-        st.rerun()
+        try:
+            sheets_repository.delete_library_item(target_item["id"])
+            refresh_session_state_from_storage()
+            st.success(f"「{edit_target_name}」を削除しました。")
+            st.rerun()
+        except Exception as exc:
+            st.error(f"削除に失敗しました: {exc}")
