@@ -1,6 +1,6 @@
 import streamlit as st
 
-from constants import CATEGORIES
+from constants import CATEGORIES, CATEGORY_LABELS
 from repository import sheets_repository
 from state import refresh_session_state_from_storage
 
@@ -15,25 +15,25 @@ def render_admin_page() -> None:
 
 
 def render_todays_menu_admin() -> None:
-    st.markdown('<div class="section-header">本日のトレーニングを組む</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">Build Today\'s Workout</div>', unsafe_allow_html=True)
 
     available_names = [item["name"] for item in st.session_state["library"]]
     library_by_name = {item["name"]: item for item in st.session_state["library"]}
     with st.form(key="add_today_form"):
         if available_names:
-            selected_name = st.selectbox("ライブラリから種目を選択", available_names)
+            selected_name = st.selectbox("Select a workout from the library", available_names)
             col1, col2 = st.columns(2)
             with col1:
-                target_reps = st.text_input("レップ数 (例: 10, または 8〜10)")
+                target_reps = st.text_input("Reps (e.g. 10 or 8-10)")
             with col2:
-                target_sets = st.text_input("セット数 (例: 3)")
+                target_sets = st.text_input("Sets (e.g. 3)")
 
-            submit_today = st.form_submit_button(label="本日のメニューに追加")
+            submit_today = st.form_submit_button(label="Add to today's menu")
             if submit_today:
                 if target_reps and target_sets:
                     selected_item = library_by_name.get(selected_name)
                     if not selected_item:
-                        st.error("選択した種目が見つかりません。")
+                        st.error("Selected workout was not found.")
                     else:
                         try:
                             sheets_repository.add_todays_menu_item(
@@ -42,37 +42,37 @@ def render_todays_menu_admin() -> None:
                                 sets=target_sets,
                             )
                             refresh_session_state_from_storage()
-                            st.success(f"「{selected_name}」を本日のメニューに追加しました。")
+                            st.success(f"Added '{selected_name}' to today's menu.")
                             st.rerun()
                         except Exception as exc:
-                            st.error(f"保存に失敗しました: {exc}")
+                            st.error(f"Failed to save: {exc}")
                 else:
-                    st.error("レップ数とセット数を入力してください。")
+                    st.error("Please enter both reps and sets.")
         else:
-            st.warning("先にトレーニングライブラリへ種目を追加してください。")
+            st.warning("Add workouts to the library first.")
 
-    if st.button("本日のメニューを全てクリアする"):
+    if st.button("Clear today's menu"):
         try:
             sheets_repository.clear_todays_menu()
             refresh_session_state_from_storage()
             st.rerun()
         except Exception as exc:
-            st.error(f"クリアに失敗しました: {exc}")
+            st.error(f"Failed to clear: {exc}")
 
 
 def render_library_create_admin() -> None:
-    st.markdown('<div class="section-header">ライブラリに新規種目を登録</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">Add Workout to Library</div>', unsafe_allow_html=True)
     with st.form(key="add_library_form"):
-        new_cat = st.selectbox("カテゴリー", CATEGORIES)
-        new_name = st.text_input("種目名 (例: 懸垂)")
-        new_url = st.text_input("参考動画URL (YouTubeリンク等)")
-        new_point = st.text_area("意識ポイント (任意)")
+        new_cat = st.selectbox("Category", CATEGORIES, format_func=lambda c: CATEGORY_LABELS[c])
+        new_name = st.text_input("Workout name (e.g. Pull-up)")
+        new_url = st.text_input("Video URL (YouTube link, etc.)")
+        new_point = st.text_area("Coaching tip (optional)")
 
-        submit_lib = st.form_submit_button(label="ライブラリに登録")
+        submit_lib = st.form_submit_button(label="Add to library")
         if submit_lib:
             if new_name and new_url:
                 if any(item["name"] == new_name for item in st.session_state["library"]):
-                    st.error("その種目名は既に登録されています。別の名前を指定してください。")
+                    st.error("That workout name already exists. Please use a different name.")
                 else:
                     try:
                         sheets_repository.add_library_item(
@@ -82,23 +82,23 @@ def render_library_create_admin() -> None:
                             point=new_point,
                         )
                         refresh_session_state_from_storage()
-                        st.success(f"「{new_name}」をライブラリ({new_cat})に登録しました。")
+                        st.success(f"Added '{new_name}' to the {CATEGORY_LABELS[new_cat]} category.")
                         st.rerun()
                     except Exception as exc:
-                        st.error(f"登録に失敗しました: {exc}")
+                        st.error(f"Failed to register: {exc}")
             else:
-                st.error("種目名と動画URLは必須です。")
+                st.error("Workout name and video URL are required.")
 
 
 def render_library_edit_admin() -> None:
-    st.markdown('<div class="section-header">ライブラリの編集・削除</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">Edit or Delete Library Workout</div>', unsafe_allow_html=True)
     available_names = [item["name"] for item in st.session_state["library"]]
     if not available_names:
-        st.write("ライブラリに登録されている種目がありません。")
+        st.write("No workouts are currently registered in the library.")
         return
 
     edit_target_name = st.selectbox(
-        "編集または削除する種目を選択",
+        "Select workout to edit or delete",
         available_names,
         key="edit_select",
     )
@@ -111,22 +111,23 @@ def render_library_edit_admin() -> None:
         -1,
     )
     if target_index < 0:
-        st.error("対象の種目が見つかりません。")
+        st.error("Target workout was not found.")
         return
     target_item = st.session_state["library"][target_index]
 
     with st.form(key="edit_lib_form"):
         edit_cat = st.selectbox(
-            "カテゴリー",
+            "Category",
             CATEGORIES,
             index=CATEGORIES.index(target_item["category"]),
+            format_func=lambda c: CATEGORY_LABELS[c],
         )
-        edit_name = st.text_input("種目名", value=target_item["name"])
-        edit_url = st.text_input("参考動画URL", value=target_item["url"])
-        edit_point = st.text_area("意識ポイント", value=target_item["point"])
-        submit_update = st.form_submit_button("情報を更新する")
+        edit_name = st.text_input("Workout name", value=target_item["name"])
+        edit_url = st.text_input("Video URL", value=target_item["url"])
+        edit_point = st.text_area("Coaching tip", value=target_item["point"])
+        submit_update = st.form_submit_button("Update workout")
 
-    delete_btn = st.button("この種目をライブラリから削除する")
+    delete_btn = st.button("Delete this workout from library")
 
     if submit_update:
         if edit_name and edit_url:
@@ -135,7 +136,7 @@ def render_library_edit_admin() -> None:
                 for i, item in enumerate(st.session_state["library"])
             )
             if conflict:
-                st.error("その種目名は既に他の種目で使われています。")
+                st.error("That workout name is already used by another item.")
             else:
                 try:
                     sheets_repository.update_library_item(
@@ -146,18 +147,18 @@ def render_library_edit_admin() -> None:
                         point=edit_point,
                     )
                     refresh_session_state_from_storage()
-                    st.success("ライブラリの情報を更新しました。")
+                    st.success("Library workout updated.")
                     st.rerun()
                 except Exception as exc:
-                    st.error(f"更新に失敗しました: {exc}")
+                    st.error(f"Failed to update: {exc}")
         else:
-            st.error("種目名と動画URLは必須です。")
+            st.error("Workout name and video URL are required.")
 
     if delete_btn:
         try:
             sheets_repository.delete_library_item(target_item["id"])
             refresh_session_state_from_storage()
-            st.success(f"「{edit_target_name}」を削除しました。")
+            st.success(f"Deleted '{edit_target_name}'.")
             st.rerun()
         except Exception as exc:
-            st.error(f"削除に失敗しました: {exc}")
+            st.error(f"Failed to delete: {exc}")

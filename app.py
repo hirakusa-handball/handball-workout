@@ -10,12 +10,12 @@ st.set_page_config(page_title="Handball Team Hub", layout="centered")
 apply_global_styles()
 init_session_state()
 
-st.sidebar.title("メニュー")
-page = st.sidebar.radio("ページを選択", ["トレーニング", "本日のトレーニング", "管理者"])
+st.sidebar.title("Menu")
+page = st.sidebar.radio("Select page", ["Training", "Today's Workout", "Admin"])
 
-if page == "トレーニング":
+if page == "Training":
     render_training_page()
-elif page == "本日のトレーニング":
+elif page == "Today's Workout":
     render_todays_training_page()
-elif page == "管理者":
+elif page == "Admin":
     render_admin_page()
