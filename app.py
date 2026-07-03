@@ -1,5 +1,6 @@
 import streamlit as st
 from datetime import date
+import re  # ★追加：URLの中からIDを探し出すためのツール
 
 from constants import CATEGORIES, CATEGORY_LABELS
 from repository import sheets_repository
@@ -26,6 +27,25 @@ init_session_state()
 st.sidebar.title("Menu")
 page = st.sidebar.radio("Select page", ["Training", "Daily Workout", "Admin"])
 
+# ★追加：動画を正しく表示するための専用関数
+def display_media(url: str) -> None:
+    if not url:
+        return
+    
+    # Googleドライブのリンクだった場合、専用のプレイヤー（iframe）に変換する
+    if "drive.google.com/file/d/" in url:
+        match = re.search(r"/file/d/([a-zA-Z0-9_-]+)", url)
+        if match:
+            file_id = match.group(1)
+            # Googleドライブのプレビュー画面を埋め込む
+            iframe_html = f'<iframe src="https://drive.google.com/file/d/{file_id}/preview" width="100%" height="400" style="border:none; border-radius: 8px;"></iframe>'
+            st.markdown(iframe_html, unsafe_allow_html=True)
+        else:
+            st.write(url)
+    else:
+        # YouTubeなど、通常のリンクの場合はそのままStreamlitの機能を使う
+        st.video(url)
+
 
 def render_training_page() -> None:
     st.markdown('<div class="main-title">TRAINING LIBRARY</div>', unsafe_allow_html=True)
@@ -51,7 +71,9 @@ def render_training_page() -> None:
 
             for item in cat_items:
                 with st.expander(item["name"]):
-                    st.video(item["url"])
+                    # ★変更：先ほど作った専用関数を使って表示する
+                    display_media(item["url"])
+                    
                     if item["point"]:
                         st.caption(f"Tip: {item['point']}")
 
@@ -59,13 +81,11 @@ def render_training_page() -> None:
 def render_todays_training_page() -> None:
     st.markdown('<div class="main-title">WORKOUT SCHEDULE</div>', unsafe_allow_html=True)
     
-    # カレンダーで日付を選択
     selected_date = st.date_input("カレンダーから日付を選択", date.today(), key="view_date")
     date_str = selected_date.isoformat()
     
     st.markdown(f'<div class="section-header">{date_str} のメニュー</div>', unsafe_allow_html=True)
 
-    # 選択した日付のメニューを直接データベースから取得
     current_menu = sheets_repository.get_todays_menu(date_str)
 
     if not current_menu:
@@ -82,18 +102,18 @@ def render_todays_training_page() -> None:
             None,
         )
         
-        # --- 修正箇所：IDを使ってライブラリから「名前」を引っ張ってくる ---
         if library_match:
             display_name = library_match["name"]
         else:
             display_name = today_item.get("name", "Unknown workout")
-        # -----------------------------------------------------------
         
         display_title = f"{index + 1}. {display_name} | {today_item['reps']} reps x {today_item['sets']} sets"
 
         with st.expander(display_title):
             if library_match:
-                st.video(library_match["url"])
+                # ★変更：ここでも専用関数を使う
+                display_media(library_match["url"])
+                
                 if library_match["point"]:
                     st.caption(f"Tip: {library_match['point']}")
             else:
@@ -112,14 +132,12 @@ def render_admin_page() -> None:
 def render_todays_menu_admin() -> None:
     st.markdown('<div class="section-header">日々のメニューを作成</div>', unsafe_allow_html=True)
 
-    # カレンダーで編集したい日付を選択
     selected_date = st.date_input("編集する日付を選択", date.today(), key="admin_date")
     date_str = selected_date.isoformat()
 
     available_names = [item["name"] for item in st.session_state["library"]]
     library_by_name = {item["name"]: item for item in st.session_state["library"]}
     
-    # 親切機能：その日にすでにいくつメニューが登録されているか表示
     current_menu = sheets_repository.get_todays_menu(date_str)
     st.caption(f"ℹ️ 現在、{date_str} には {len(current_menu)} 件のメニューが登録されています。")
 
@@ -140,7 +158,6 @@ def render_todays_menu_admin() -> None:
                         st.error("Selected workout was not found.")
                     else:
                         try:
-                            # 選択した日付を指定して保存
                             sheets_repository.add_todays_menu_item(
                                 library_id=selected_item["id"],
                                 reps=target_reps,
@@ -159,7 +176,6 @@ def render_todays_menu_admin() -> None:
 
     if st.button(f"{date_str} のメニューをすべて削除"):
         try:
-            # 選択した日付を指定して削除
             sheets_repository.clear_todays_menu(target_date=date_str)
             refresh_session_state_from_storage()
             st.rerun()
@@ -177,22 +193,36 @@ def render_library_create_admin() -> None:
 
     with st.form(key="add_library_form"):
         new_name = st.text_input("Workout name (e.g. Pull-up)")
-        new_url = st.text_input("Video URL (YouTube link, etc.)")
+        
+        uploaded_file = st.file_uploader("スマホの動画・写真を選択", type=["mp4", "mov", "jpg", "jpeg", "png"])
+        new_url = st.text_input("またはVideo URLを直接入力 (YouTube等)")
+        
         new_point = st.text_area("Coaching tip (optional)")
 
         submit_lib = st.form_submit_button(label="Add to library")
         if submit_lib:
-            if new_name and new_url:
+            if new_name and (new_url or uploaded_file):
                 if any(item["name"] == new_name for item in st.session_state["library"]):
                     st.error("That workout name already exists. Please use a different name.")
                 else:
                     try:
+                        final_url = new_url
+                        
+                        if uploaded_file is not None:
+                            with st.spinner("ファイルをGoogleドライブに保存しています...（数秒かかります）"):
+                                file_bytes = uploaded_file.read()
+                                final_url = sheets_repository.upload_media(
+                                    file_bytes=file_bytes,
+                                    mime_type=uploaded_file.type,
+                                    file_name=uploaded_file.name
+                                )
+
                         save_cat = f"{new_cat}_{new_sub_cat}" if new_sub_cat else new_cat
                         
                         sheets_repository.add_library_item(
                             category=save_cat,
                             name=new_name,
-                            url=new_url,
+                            url=final_url,
                             point=new_point,
                         )
                         refresh_session_state_from_storage()
@@ -201,7 +231,7 @@ def render_library_create_admin() -> None:
                     except Exception as exc:
                         st.error(f"Failed to register: {exc}")
             else:
-                st.error("Workout name and video URL are required.")
+                st.error("Workout name and (Video URL or File) are required.")
 
 
 def render_library_edit_admin() -> None:

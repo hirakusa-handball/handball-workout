@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 from datetime import date
 from typing import Any, Dict, List, Optional
 
@@ -92,6 +93,18 @@ def delete_todays_menu_by_library_id(library_id: str) -> None:
 def seed_defaults(library: List[Dict[str, str]], daily_menu: List[Dict[str, str]]) -> None:
     _request("seed_defaults", {"library": library, "daily_menu": daily_menu, "date": _today_string()})
     invalidate_cache()
+
+
+# ★追加：ファイルをGAS経由でアップロードする処理
+def upload_media(file_bytes: bytes, mime_type: str, file_name: str) -> str:
+    encoded = base64.b64encode(file_bytes).decode("utf-8")
+    payload = {
+        "file_base64": encoded,
+        "mime_type": mime_type,
+        "file_name": file_name
+    }
+    data = _request("upload_media", payload)
+    return data.get("file_url", "")
 
 
 def invalidate_cache() -> None:
