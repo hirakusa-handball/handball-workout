@@ -28,7 +28,7 @@ def _request(action: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str,
     body = {"action": action, "api_key": cfg["api_key"]}
     if payload:
         body.update(payload)
-    response = requests.post(cfg["base_url"], json=body, timeout=20)
+    response = requests.post(cfg["base_url"], json=body, timeout=60)
     response.raise_for_status()
     data = response.json()
     if not data.get("ok"):
@@ -95,7 +95,7 @@ def seed_defaults(library: List[Dict[str, str]], daily_menu: List[Dict[str, str]
     invalidate_cache()
 
 
-# ★追加：ファイルをGAS経由でアップロードする処理
+# ★これがないとエラーになります
 def upload_media(file_bytes: bytes, mime_type: str, file_name: str) -> str:
     encoded = base64.b64encode(file_bytes).decode("utf-8")
     payload = {
