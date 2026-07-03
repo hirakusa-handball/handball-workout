@@ -1,4 +1,5 @@
 import streamlit as st
+from datetime import date
 
 from constants import CATEGORIES, CATEGORY_LABELS
 from repository import sheets_repository
@@ -23,7 +24,7 @@ apply_global_styles()
 init_session_state()
 
 st.sidebar.title("Menu")
-page = st.sidebar.radio("Select page", ["Training", "Today's Workout", "Admin"])
+page = st.sidebar.radio("Select page", ["Training", "Daily Workout", "Admin"])
 
 
 def render_training_page() -> None:
@@ -37,14 +38,13 @@ def render_training_page() -> None:
                 f'<div class="section-header">{CATEGORY_LABELS[cat]} Menu</div>',
                 unsafe_allow_html=True,
             )
-            # --- 変更箇所：筋力タブの場合のみサブメニューを表示 ---
-            if cat == "筋力":  # ← 画面のラベルではなく、変数(cat)自体で判定します
+            if cat == "筋力":
                 sub_cat = st.radio("部位を選択", ["Push", "Pull", "Leg"], horizontal=True, key=f"radio_{cat}")
                 target_cat_string = f"{cat}_{sub_cat}"
                 cat_items = [item for item in st.session_state["library"] if item["category"] == target_cat_string]
             else:
                 cat_items = [item for item in st.session_state["library"] if item["category"] == cat]
-            # --------------------------------------------------
+            
             if not cat_items:
                 st.caption("No exercises registered in this category yet.")
                 continue
@@ -57,14 +57,22 @@ def render_training_page() -> None:
 
 
 def render_todays_training_page() -> None:
-    st.markdown('<div class="main-title">TODAY\'S WORKOUT</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-header">Today\'s Menu</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">WORKOUT SCHEDULE</div>', unsafe_allow_html=True)
+    
+    # カレンダーで日付を選択
+    selected_date = st.date_input("カレンダーから日付を選択", date.today(), key="view_date")
+    date_str = selected_date.isoformat()
+    
+    st.markdown(f'<div class="section-header">{date_str} のメニュー</div>', unsafe_allow_html=True)
 
-    if not st.session_state["todays_menu"]:
-        st.write("No workout has been set for today yet.")
+    # 選択した日付のメニューを直接データベースから取得
+    current_menu = sheets_repository.get_todays_menu(date_str)
+
+    if not current_menu:
+        st.write("この日のトレーニングはまだ設定されていません。")
         return
 
-    for index, today_item in enumerate(st.session_state["todays_menu"]):
+    for index, today_item in enumerate(current_menu):
         library_match = next(
             (
                 lib
@@ -95,10 +103,19 @@ def render_admin_page() -> None:
 
 
 def render_todays_menu_admin() -> None:
-    st.markdown('<div class="section-header">Build Today\'s Workout</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">日々のメニューを作成</div>', unsafe_allow_html=True)
+
+    # カレンダーで編集したい日付を選択
+    selected_date = st.date_input("編集する日付を選択", date.today(), key="admin_date")
+    date_str = selected_date.isoformat()
 
     available_names = [item["name"] for item in st.session_state["library"]]
     library_by_name = {item["name"]: item for item in st.session_state["library"]}
+    
+    # 親切機能：その日にすでにいくつメニューが登録されているか表示
+    current_menu = sheets_repository.get_todays_menu(date_str)
+    st.caption(f"ℹ️ 現在、{date_str} には {len(current_menu)} 件のメニューが登録されています。")
+
     with st.form(key="add_today_form"):
         if available_names:
             selected_name = st.selectbox("Select a workout from the library", available_names)
@@ -108,7 +125,7 @@ def render_todays_menu_admin() -> None:
             with col2:
                 target_sets = st.text_input("Sets (e.g. 3)")
 
-            submit_today = st.form_submit_button(label="Add to today's menu")
+            submit_today = st.form_submit_button(label=f"{date_str} のメニューに追加")
             if submit_today:
                 if target_reps and target_sets:
                     selected_item = library_by_name.get(selected_name)
@@ -116,13 +133,15 @@ def render_todays_menu_admin() -> None:
                         st.error("Selected workout was not found.")
                     else:
                         try:
+                            # 選択した日付を指定して保存
                             sheets_repository.add_todays_menu_item(
                                 library_id=selected_item["id"],
                                 reps=target_reps,
                                 sets=target_sets,
+                                target_date=date_str
                             )
                             refresh_session_state_from_storage()
-                            st.success(f"Added '{selected_name}' to today's menu.")
+                            st.success(f"Added '{selected_name}' to {date_str} menu.")
                             st.rerun()
                         except Exception as exc:
                             st.error(f"Failed to save: {exc}")
@@ -131,9 +150,10 @@ def render_todays_menu_admin() -> None:
         else:
             st.warning("Add workouts to the library first.")
 
-    if st.button("Clear today's menu"):
+    if st.button(f"{date_str} のメニューをすべて削除"):
         try:
-            sheets_repository.clear_todays_menu()
+            # 選択した日付を指定して削除
+            sheets_repository.clear_todays_menu(target_date=date_str)
             refresh_session_state_from_storage()
             st.rerun()
         except Exception as exc:
@@ -143,10 +163,8 @@ def render_todays_menu_admin() -> None:
 def render_library_create_admin() -> None:
     st.markdown('<div class="section-header">Add Workout to Library</div>', unsafe_allow_html=True)
     
-    # フォームの外でカテゴリーを選択させる（切り替えると画面が反応するようにするため）
     new_cat = st.selectbox("Category", CATEGORIES, format_func=lambda c: CATEGORY_LABELS[c])
     new_sub_cat = ""
-    # 変更前: if CATEGORY_LABELS[new_cat] == "筋力":
     if new_cat == "筋力":
         new_sub_cat = st.selectbox("部位", ["Push", "Pull", "Leg"], key="create_sub")
 
@@ -162,7 +180,6 @@ def render_library_create_admin() -> None:
                     st.error("That workout name already exists. Please use a different name.")
                 else:
                     try:
-                        # 筋力の場合は「strength_Push」のように結合して保存
                         save_cat = f"{new_cat}_{new_sub_cat}" if new_sub_cat else new_cat
                         
                         sheets_repository.add_library_item(
@@ -199,14 +216,12 @@ def render_library_edit_admin() -> None:
     
     target_item = st.session_state["library"][target_index]
 
-    # 保存されている文字列（例: strength_Push）を分解する
     raw_cat = target_item["category"]
     if "_" in raw_cat:
         base_cat, base_sub = raw_cat.split("_", 1)
     else:
-        base_cat, base_sub = raw_cat, "Push" # 古いデータ用
+        base_cat, base_sub = raw_cat, "Push"
 
-    # フォームの外でカテゴリーを選択
     edit_cat = st.selectbox(
         "Category",
         CATEGORIES,
@@ -216,7 +231,6 @@ def render_library_edit_admin() -> None:
     )
     
     edit_sub_cat = ""
-    # 変更前: if CATEGORY_LABELS[edit_cat] == "筋力":
     if edit_cat == "筋力":
         sub_options = ["Push", "Pull", "Leg"]
         edit_sub_cat = st.selectbox("部位", sub_options, index=sub_options.index(base_sub) if base_sub in sub_options else 0, key="edit_sub")
@@ -235,7 +249,6 @@ def render_library_edit_admin() -> None:
                 st.error("That workout name is already used by another item.")
             else:
                 try:
-                    # 再び合体させて保存
                     save_cat = f"{edit_cat}_{edit_sub_cat}" if edit_sub_cat else edit_cat
                     
                     sheets_repository.update_library_item(
@@ -265,7 +278,7 @@ def render_library_edit_admin() -> None:
 
 if page == "Training":
     render_training_page()
-elif page == "Today's Workout":
+elif page == "Daily Workout":
     render_todays_training_page()
 elif page == "Admin":
     if "admin_authenticated" not in st.session_state:
