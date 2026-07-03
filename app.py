@@ -33,20 +33,21 @@ def display_media(url: str) -> None:
     if not url:
         return
     
-    # Googleドライブのリンクだった場合
     if "drive.google.com/file/d/" in url:
         match = re.search(r"/file/d/([a-zA-Z0-9_-]+)", url)
         if match:
             file_id = match.group(1)
-            # プレビュー画面ではなく、動画の生データを直接取得する裏ワザURL
-            direct_url = f"https://drive.google.com/uc?export=download&id={file_id}"
-            
-            # Streamlitの綺麗でスマホ対応の標準プレイヤーに直接データを流し込む
-            st.video(direct_url)
+            # スマホの縦長動画（9:16）がすっぽり収まるように枠を自動計算させる
+            iframe_html = f'''
+            <div style="width: 100%; aspect-ratio: 9/16; max-height: 80vh; overflow: hidden; border-radius: 8px;">
+                <iframe src="https://drive.google.com/file/d/{file_id}/preview" width="100%" height="100%" style="border:none;"></iframe>
+            </div>
+            '''
+            st.markdown(iframe_html, unsafe_allow_html=True)
         else:
             st.write(url)
     else:
-        # YouTubeなど、通常のリンクの場合はそのままStreamlitの機能を使う
+        # YouTubeなどの場合は綺麗にネイティブ再生
         st.video(url)
 
 def render_training_page() -> None:
