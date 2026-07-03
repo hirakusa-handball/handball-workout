@@ -81,7 +81,14 @@ def render_todays_training_page() -> None:
             ),
             None,
         )
-        display_name = today_item.get("name", "Unknown workout")
+        
+        # --- 修正箇所：IDを使ってライブラリから「名前」を引っ張ってくる ---
+        if library_match:
+            display_name = library_match["name"]
+        else:
+            display_name = today_item.get("name", "Unknown workout")
+        # -----------------------------------------------------------
+        
         display_title = f"{index + 1}. {display_name} | {today_item['reps']} reps x {today_item['sets']} sets"
 
         with st.expander(display_title):
