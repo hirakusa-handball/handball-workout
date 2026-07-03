@@ -28,24 +28,26 @@ st.sidebar.title("Menu")
 page = st.sidebar.radio("Select page", ["Training", "Daily Workout", "Admin"])
 
 # ★追加：動画を正しく表示するための専用関数
+# ★変更：動画を綺麗に表示するための専用関数（スマホ最適化版）
 def display_media(url: str) -> None:
     if not url:
         return
     
-    # Googleドライブのリンクだった場合、専用のプレイヤー（iframe）に変換する
+    # Googleドライブのリンクだった場合
     if "drive.google.com/file/d/" in url:
         match = re.search(r"/file/d/([a-zA-Z0-9_-]+)", url)
         if match:
             file_id = match.group(1)
-            # Googleドライブのプレビュー画面を埋め込む
-            iframe_html = f'<iframe src="https://drive.google.com/file/d/{file_id}/preview" width="100%" height="400" style="border:none; border-radius: 8px;"></iframe>'
-            st.markdown(iframe_html, unsafe_allow_html=True)
+            # プレビュー画面ではなく、動画の生データを直接取得する裏ワザURL
+            direct_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+            
+            # Streamlitの綺麗でスマホ対応の標準プレイヤーに直接データを流し込む
+            st.video(direct_url)
         else:
             st.write(url)
     else:
         # YouTubeなど、通常のリンクの場合はそのままStreamlitの機能を使う
         st.video(url)
-
 
 def render_training_page() -> None:
     st.markdown('<div class="main-title">TRAINING LIBRARY</div>', unsafe_allow_html=True)
